@@ -39,7 +39,7 @@ func main() {
 
 func router(r *gin.Engine) {
 	r.POST("/event", sendEvent)
-	r.GET("/health", getStatus)
+	r.GET("/health", getHealth)
 }
 
 func watch() {
@@ -47,20 +47,34 @@ func watch() {
 	for range tick.C {
 		for _, event := range events {
 			if time.Since(event.Timestamp) > time.Second*time.Duration(timeout) {
-				log.WithField("ID", event.ID).Errorf("No event since %d seconds", timeout)
+				alert(event)
 			}
 		}
 	}
 }
 
+func alert(event Event) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	event.Status = "ERROR"
+	events[event.ID] = event
+	log.WithField("ID", event.ID).Errorf("No event since %d seconds", timeout)
+	sendEmail(event)
+}
+
+func sendEmail(event Event) {
+	// TODO
+	log.WithField("ID", event.ID).Error("Send alert mail")
+}
+
 type Event struct {
 	ID        string
+	Status    string
 	Timestamp time.Time
 	Value     interface{}
 }
 
 func sendEvent(c *gin.Context) {
-
 	var obj map[string]interface{}
 	err := c.BindJSON(&obj)
 	if err != nil {
@@ -75,15 +89,16 @@ func sendEvent(c *gin.Context) {
 	}
 
 	ID = c.Request.RemoteAddr + "/" + ID
-
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	events[ID] = Event{
+	event := Event{
 		ID:        ID,
+		Status:    "OK",
 		Timestamp: time.Now(),
 		Value:     obj,
 	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+	events[ID] = event
 }
 
 func extractID(obj map[string]interface{}) (string, error) {
@@ -95,7 +110,7 @@ func extractID(obj map[string]interface{}) (string, error) {
 	return "", errors.New("No field found to extract ID")
 }
 
-func getStatus(c *gin.Context) {
+func getHealth(c *gin.Context) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
