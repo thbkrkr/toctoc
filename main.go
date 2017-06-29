@@ -3,116 +3,102 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
+	"os"
+	"strings"
 	"sync"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/thbkrkr/go-utilz/http"
+	"github.com/thbkrkr/qli/client"
 )
 
 var (
 	name      = "toctoc"
 	buildDate = "dev"
 	gitCommit = "dev"
+	port      int
 
-	port    int
-	tick    int
-	timeout int
-	mutex   sync.RWMutex
-	events  = map[string]Event{}
+	kafkaTopic string
+	tick       int
+	timeout    int
+
+	mutex  sync.RWMutex
+	events = map[string]map[string]Event{}
+
+	q *client.Qlient
+
+	authNs = "krkr,qaas,faas"
 )
 
 func init() {
 	flag.IntVar(&port, "port", 4242, "Port")
-	flag.IntVar(&tick, "tick", 10, "Tick seconds")
-	flag.IntVar(&timeout, "timeout", 10, "Timeout in seconds")
-
+	flag.StringVar(&kafkaTopic, "kafka-topic", "", "Alert Kafka Topic")
+	flag.IntVar(&tick, "tick", 30, "Tick seconds")
+	flag.IntVar(&timeout, "timeout", 30, "Health timeout in seconds")
 	flag.Parse()
 }
 
 func main() {
-	go watch()
+	go Watch()
+
+	hostname, _ := os.Hostname()
+
+	var err error
+	q, err = client.NewClientFromEnv(fmt.Sprintf("qws-%s", hostname))
+	if err != nil {
+		log.WithError(err).Fatal("Fail to create qlient")
+	}
+	if q == nil {
+		log.WithError(err).Fatal("Fail to create qlient (*)")
+	}
 
 	http.API(name, buildDate, gitCommit, port, router)
 }
 
-func router(r *gin.Engine) {
-	r.POST("/event", sendEvent)
-	r.GET("/health", getHealth)
+func router(e *gin.Engine) {
+	r := e.Group("/r", authMiddleware())
+	r.POST("/:ns/event", HandleEvent)
+	r.GET("/:ns/services", Services)
+	r.GET("/:ns/health", Health)
 }
 
-func watch() {
-	tick := time.NewTicker(time.Second * time.Duration(tick))
-	for range tick.C {
-		for _, event := range events {
-			if time.Since(event.Timestamp) > time.Second*time.Duration(timeout) {
-				alert(event)
-			}
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ns := c.Param("ns")
+
+		if !isAuthorized(ns) {
+			c.AbortWithError(401, errors.New("Authorization failed"))
 		}
 	}
 }
 
-func alert(event Event) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	event.Status = "ERROR"
-	events[event.ID] = event
-	log.WithField("ID", event.ID).Errorf("No event since %d seconds", timeout)
-	sendEmail(event)
-}
-
-func sendEmail(event Event) {
-	// TODO
-	log.WithField("ID", event.ID).Error("Send alert mail")
-}
-
-type Event struct {
-	ID        string
-	Status    string
-	Timestamp time.Time
-	Value     interface{}
-}
-
-func sendEvent(c *gin.Context) {
-	var obj map[string]interface{}
-	err := c.BindJSON(&obj)
-	if err != nil {
-		c.JSON(400, gin.H{"message": "Fail to bind JSON"})
-		return
+func isAuthorized(ns string) bool {
+	authNss := strings.Split(authNs, ",")
+	for _, auNs := range authNss {
+		if auNs == ns {
+			return true
+		}
 	}
-
-	ID, err := extractID(obj)
-	if err != nil {
-		c.JSON(400, gin.H{"message": "Fail to extract ID"})
-		return
-	}
-
-	ID = c.Request.RemoteAddr + "/" + ID
-	event := Event{
-		ID:        ID,
-		Status:    "OK",
-		Timestamp: time.Now(),
-		Value:     obj,
-	}
-
-	mutex.Lock()
-	defer mutex.Unlock()
-	events[ID] = event
+	return false
 }
 
-func extractID(obj map[string]interface{}) (string, error) {
-	host := obj["Host"]
-	if host != nil {
-		return host.(string), nil
-	}
-
-	return "", errors.New("No field found to extract ID")
-}
-
-func getHealth(c *gin.Context) {
+// Health return all events with status 500 if at least one event is in error
+func Health(c *gin.Context) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	c.JSON(200, events)
+	evs := events[c.Param("ns")]
+
+	eventsArr := []interface{}{}
+	status := 200
+	for _, event := range evs {
+		eventsArr = append(eventsArr, event)
+		if event.Status == StatusKO {
+			status = 500
+		}
+	}
+
+	c.JSON(status, eventsArr)
 }

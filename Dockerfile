@@ -1,5 +1,11 @@
-FROM alpine:3.4
+FROM golang:1.8.0-alpine
+ENV GOBIN=/go/bin/ GOPATH=/go
+WORKDIR /go/src/github.com/thbkrkr/toctoc
+COPY . /go/src/github.com/thbkrkr/toctoc
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
 
-COPY toctoc /toctoc
-
+FROM alpine:3.5
+RUN apk --no-cache add ca-certificates
+COPY _static /_static
+COPY --from=0 /go/src/github.com/thbkrkr/toctoc/toctoc /toctoc
 ENTRYPOINT ["/toctoc"]
