@@ -2,6 +2,8 @@
 
 main() {
 	while true; do
+		url=localhost:4242
+		ns=krkr
 
 		n=$(shuf -i 1-5 -n 1)
 		s=$(shuf -i 1-5 -n 1)
@@ -9,7 +11,7 @@ main() {
 
 		echo "event n:$n service:$s sleep:$d"
 
-		curl -s "localhost:4242/r/krkr/event" -XPOST \
+		curl -is "$url/r/$ns/event" -XPOST \
 				-d '
 			{
 				"Host":"n'$n'.k.g.i.h.net",
@@ -19,7 +21,7 @@ main() {
 				"Latency": 221
 			}'
 
-		sleep 0.$d
+		sleep $d
 
 	done
 }

@@ -61,13 +61,17 @@
     <tr>
       <td><%= host %></td>
       <% for (var s in obj.services) { %>
-        <%
-          if (!obj.status[host][obj.services[s]]) { continue }
-         if (true) { e = obj.status[host][obj.services[s]] }
+        <% if (!obj.status[host][obj.services[s]]) {
+            var e = obj.status[host][obj.services[s]]
+          }
         %>
-      <td class="<%= e.Status %>">
-        <span class="short"><%= e.Status %></span>
+      <% if (obj.status[host][obj.services[s]]) { %>
+      <td class="<%= obj.status[host][obj.services[s]].Status %>">
+        <span class="short"><%= obj.status[host][obj.services[s]].Status %></span>
       </td>
+        <% } else { %>
+      <td></td>
+        <% } %>
       <% } %>
     </tr>
     <% } %>

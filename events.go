@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,7 +41,7 @@ func (e Event) toBytes() ([]byte, error) {
 
 func Services(c *gin.Context) {
 	mutex.RLock()
-	mutex.RUnlock()
+	defer mutex.RUnlock()
 
 	evs := events[c.Param("ns")]
 
@@ -112,4 +113,45 @@ func extractID(obj map[string]interface{}) (string, error) {
 	}
 
 	return service.(string) + "/" + host.(string), nil
+}
+
+func DeleteService(c *gin.Context) {
+	ns := c.Param("ns")
+	service := c.Param("service")
+	evs := events[ns]
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for id, event := range evs {
+		if event.getService() == service {
+			logrus.Info("deleteService for host: ", event.getHost(), " service: ", event.getService())
+			delete(events[ns], id)
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Service " + service + " removed",
+	})
+}
+
+func DeleteHost(c *gin.Context) {
+	ns := c.Param("ns")
+	host := c.Param("host")
+	evs := events[ns]
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for id, event := range evs {
+		logrus.Info("deleteHost?? ", event.getHost(), " ? ", host)
+		if event.getHost() == host {
+			logrus.Info("deleteHost for host: ", event.getHost(), " service: ", event.getService())
+			delete(events[ns], id)
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Host " + host + " removed",
+	})
 }

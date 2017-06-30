@@ -60,6 +60,8 @@ func main() {
 func router(e *gin.Engine) {
 	r := e.Group("/r", authMiddleware())
 	r.POST("/:ns/event", HandleEvent)
+	r.DELETE("/:ns/service/:service", DeleteService)
+	r.DELETE("/:ns/host/:host", DeleteHost)
 	r.GET("/:ns/services", Services)
 	r.GET("/:ns/health", Health)
 }
