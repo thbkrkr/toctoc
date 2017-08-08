@@ -20,9 +20,9 @@ var (
 	gitCommit = "dev"
 	port      int
 
-	kafkaTopic string
-	tick       int
-	timeout    int
+	watchTick     int
+	healthTimeout int
+	kafkaAlerter  bool
 
 	mutex  sync.RWMutex
 	events = map[string]map[string]Event{}
@@ -34,9 +34,9 @@ var (
 
 func init() {
 	flag.IntVar(&port, "port", 4242, "Port")
-	flag.StringVar(&kafkaTopic, "kafka-topic", "", "Alert Kafka Topic")
-	flag.IntVar(&tick, "tick", 30, "Tick seconds")
-	flag.IntVar(&timeout, "timeout", 30, "Health timeout in seconds")
+	flag.IntVar(&watchTick, "watch-tick", 30, "Tick in seconds")
+	flag.IntVar(&healthTimeout, "health-timeout", 30, "Health timeout in seconds")
+	flag.BoolVar(&kafkaAlerter, "kafka-alerter", false, "Send alerts to Kafka")
 	flag.Parse()
 }
 
@@ -45,13 +45,15 @@ func main() {
 
 	hostname, _ := os.Hostname()
 
-	var err error
-	q, err = client.NewClientFromEnv(fmt.Sprintf("qws-%s", hostname))
-	if err != nil {
-		log.WithError(err).Fatal("Fail to create qlient")
-	}
-	if q == nil {
-		log.WithError(err).Fatal("Fail to create qlient (*)")
+	if kafkaAlerter {
+		var err error
+		q, err = client.NewClientFromEnv(fmt.Sprintf("qws-%s", hostname))
+		if err != nil {
+			log.WithError(err).Fatal("Fail to create qlient")
+		}
+		if q == nil {
+			log.WithError(err).Fatal("Fail to create qlient (*)")
+		}
 	}
 
 	http.API(name, buildDate, gitCommit, port, router)

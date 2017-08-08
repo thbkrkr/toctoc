@@ -1,8 +1,12 @@
 #!/bin/bash -eu
 
+push() {
+	curl -is "$url/r/$ns/event" -XPOST -d "$@"
+}
+
 main() {
 	while true; do
-		url=localhost:4242
+    url=localhost:4244
 		ns=krkr
 
 		n=$(shuf -i 1-5 -n 1)
@@ -11,18 +15,15 @@ main() {
 
 		echo "event n:$n service:$s sleep:$d"
 
-		curl -is "$url/r/$ns/event" -XPOST \
-				-d '
-			{
-				"Host":"n'$n'.k.g.i.h.net",
-				"Service":"badaboum.'$s'",
-				"State":"OK",
-				"Message": "Latency < 100ms",
-				"Latency": 221
-			}'
+		push '
+		{
+			"Host": "n'$n'.k.g.i.h.net",
+			"Service": "badaboum.'$s'",
+			"State": "OK",
+			"Message": "Latency < 100ms"
+		}'
 
-		sleep $d
-
+		sleep 0.$d
 	done
 }
 
