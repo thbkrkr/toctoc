@@ -1,8 +1,10 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/thbkrkr/toctoc/types"
 )
 
 func Watch() {
@@ -18,11 +20,11 @@ func Watch() {
 	}
 }
 
-func alert(ns string, event Event) {
+func alert(ns string, event types.Event) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	event.Status = StatusKO
+	event.Status = types.StatusKO
 	events[ns][event.ID] = event
 
 	log.WithField("ns", ns).WithField("ID", event.ID).Errorf("No event since %d seconds", healthTimeout)
@@ -32,8 +34,8 @@ func alert(ns string, event Event) {
 	}
 }
 
-func sendAlertToKafka(event Event) {
-	bytes, err := event.toBytes()
+func sendAlertToKafka(event types.Event) {
+	bytes, err := event.ToBytes()
 	if err != nil {
 		log.WithField("Event", event).Errorf("Fail to marshal alert event")
 		return

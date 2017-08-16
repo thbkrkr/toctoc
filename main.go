@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/thbkrkr/go-utilz/http"
 	"github.com/thbkrkr/qli/client"
+	"github.com/thbkrkr/toctoc/types"
 )
 
 var (
@@ -25,18 +26,19 @@ var (
 	kafkaAlerter  bool
 
 	mutex  sync.RWMutex
-	events = map[string]map[string]Event{}
+	events = map[string]map[string]types.Event{}
 
 	q *client.Qlient
 
-	authNs = "krkr,qaas,faas"
+	namespaces string
 )
 
 func init() {
 	flag.IntVar(&port, "port", 4242, "Port")
-	flag.IntVar(&watchTick, "watch-tick", 30, "Tick in seconds")
-	flag.IntVar(&healthTimeout, "health-timeout", 30, "Health timeout in seconds")
-	flag.BoolVar(&kafkaAlerter, "kafka-alerter", false, "Send alerts to Kafka")
+	flag.IntVar(&watchTick, "watch-tick", 30, "Tick in seconds to watch check states")
+	flag.IntVar(&healthTimeout, "health-timeout", 30, "Health timeout in seconds to consider a check in error")
+	flag.BoolVar(&kafkaAlerter, "kafka-alerter", false, "Send alerts to Kafka (required env vars: B, U, P, T)")
+	flag.StringVar(&namespaces, "ns", "c1,c2", "Namespaces")
 	flag.Parse()
 }
 
@@ -60,12 +62,22 @@ func main() {
 }
 
 func router(e *gin.Engine) {
+	e.GET("/help", func(c *gin.Context) {
+		c.JSON(200, []string{
+			"POST   /r/:ns/event             HandleEvent",
+			"GET    /r/:ns/health            Health",
+			"GET    /r/:ns/services          Services",
+			"DELETE /r/:ns/service/:service  DeleteService",
+			"DELETE /r/:ns/host/:host        DeleteHost",
+		})
+	})
+
 	r := e.Group("/r", authMiddleware())
 	r.POST("/:ns/event", HandleEvent)
+	r.GET("/:ns/health", Health)
+	r.GET("/:ns/services", Services)
 	r.DELETE("/:ns/service/:service", DeleteService)
 	r.DELETE("/:ns/host/:host", DeleteHost)
-	r.GET("/:ns/services", Services)
-	r.GET("/:ns/health", Health)
 }
 
 func authMiddleware() gin.HandlerFunc {
@@ -79,30 +91,11 @@ func authMiddleware() gin.HandlerFunc {
 }
 
 func isAuthorized(ns string) bool {
-	authNss := strings.Split(authNs, ",")
-	for _, auNs := range authNss {
-		if auNs == ns {
+	authorizedNss := strings.Split(namespaces, ",")
+	for _, authorizedNs := range authorizedNss {
+		if authorizedNs == ns {
 			return true
 		}
 	}
 	return false
-}
-
-// Health return all events with status 500 if at least one event is in error
-func Health(c *gin.Context) {
-	mutex.RLock()
-	defer mutex.RUnlock()
-
-	evs := events[c.Param("ns")]
-
-	eventsArr := []interface{}{}
-	status := 200
-	for _, event := range evs {
-		eventsArr = append(eventsArr, event)
-		if event.Status == StatusKO {
-			status = 500
-		}
-	}
-
-	c.JSON(status, eventsArr)
 }
