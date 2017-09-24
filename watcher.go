@@ -7,38 +7,55 @@ import (
 	"github.com/thbkrkr/toctoc/types"
 )
 
+var (
+	healthTimeoutDuration = time.Second * time.Duration(healthTimeout)
+)
+
 func Watch() {
 	tick := time.NewTicker(time.Second * time.Duration(watchTick))
 	for range tick.C {
+		mutex.Lock()
 		for ns := range events {
 			for _, event := range events[ns] {
-				if time.Since(event.Timestamp) > time.Second*time.Duration(healthTimeout) {
+				if isKO(event) {
 					alert(ns, event)
 				}
 			}
 		}
+		mutex.Unlock()
 	}
 }
 
-func alert(ns string, event types.Event) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func isKO(event types.Event) bool {
+	if event.Status == types.StatusKO {
+		return true
+	}
+	if time.Since(event.Timestamp).Seconds() > float64(healthTimeout) {
+		return true
+	}
+	return false
+}
 
+func alert(ns string, event types.Event) {
 	event.Status = types.StatusKO
 	events[ns][event.ID] = event
 
 	log.WithField("ns", ns).WithField("ID", event.ID).Errorf("No event since %d seconds", healthTimeout)
 
 	if kafkaAlerter {
-		sendAlertToKafka(event)
+		go sendAlertToKafka(event)
 	}
 }
 
 func sendAlertToKafka(event types.Event) {
-	bytes, err := event.ToBytes()
+	msg, err := event.ToBytes()
 	if err != nil {
 		log.WithField("Event", event).Errorf("Fail to marshal alert event")
 		return
 	}
-	go q.Send(bytes)
+	_, _, err = q.Send(msg)
+	if err != nil {
+		log.WithField("Event", event).Errorf("Fail to send event to kafka")
+		return
+	}
 }

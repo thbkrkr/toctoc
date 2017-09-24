@@ -25,6 +25,10 @@ func (e Event) GetService() string {
 	return e.Value["Service"].(string)
 }
 
+func (e Event) GetStatus() string {
+	return e.Value["Status"].(string)
+}
+
 func (e Event) ToBytes() ([]byte, error) {
 	bytes, err := json.Marshal(e)
 	if err != nil {

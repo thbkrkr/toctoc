@@ -28,9 +28,16 @@ func HandleEvent(c *gin.Context) {
 		return
 	}
 
+	status, err := extractStatus(data)
+	if err != nil {
+		logrus.WithError(err).WithField("body", data).Error("Fail to extract status while handling state event")
+		c.JSON(400, gin.H{"message": err.Error()})
+		return
+	}
+
 	event := types.Event{
 		ID:        ID,
-		Status:    types.StatusOK,
+		Status:    status,
 		Timestamp: time.Now(),
 		Value:     data,
 	}
@@ -46,14 +53,29 @@ func HandleEvent(c *gin.Context) {
 func extractHostAndService(obj map[string]interface{}) (string, error) {
 	host := obj["Host"]
 	if host == nil {
+		host = obj["Node"]
+	}
+	if host == nil {
 		return "", errors.New("Property 'Host' not found")
 	}
 	service := obj["Service"]
 	if service == nil {
-		return "", errors.New("Property 'Host' not found")
+		return "", errors.New("Property 'Service' not found")
 	}
 
 	return service.(string) + "/" + host.(string), nil
+}
+
+func extractStatus(obj map[string]interface{}) (string, error) {
+	status := obj["Status"]
+	if status == nil {
+		status = obj["State"]
+	}
+	if status == nil {
+		return "", errors.New("Property 'Status' not found")
+	}
+
+	return status.(string), nil
 }
 
 // Health return all events with status 500 if at least one event is in error
