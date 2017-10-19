@@ -21,6 +21,13 @@ func HandleEvent(c *gin.Context) {
 		return
 	}
 
+	checkTTL, err := extractCheckTTL(data)
+	if err != nil {
+		logrus.WithError(err).WithField("body", data).Error("Fail to extract checkTTL while handling state event")
+		c.JSON(400, gin.H{"message": err.Error()})
+		return
+	}
+
 	ID, err := extractHostAndService(data)
 	if err != nil {
 		logrus.WithError(err).WithField("body", data).Error("Fail to extract host and service while handling state event")
@@ -36,6 +43,7 @@ func HandleEvent(c *gin.Context) {
 	}
 
 	event := types.Event{
+		TTL:       checkTTL,
 		ID:        ID,
 		Status:    status,
 		Timestamp: time.Now(),
@@ -48,6 +56,20 @@ func HandleEvent(c *gin.Context) {
 		events[ns] = map[string]types.Event{}
 	}
 	events[ns][ID] = event
+}
+
+func extractCheckTTL(obj map[string]interface{}) (float64, error) {
+	checkTTLObj := obj["CheckTTL"]
+	if checkTTLObj == nil {
+		return defaultCheckTTL, nil
+	}
+
+	checkTTL, ok := checkTTLObj.(float64)
+	if !ok {
+		return 0, errors.New("Property 'checkTTL' should be a number")
+	}
+
+	return checkTTL, nil
 }
 
 func extractHostAndService(obj map[string]interface{}) (string, error) {

@@ -21,9 +21,9 @@ var (
 	gitCommit = "dev"
 	port      int
 
-	watchTick     int
-	healthTimeout int
-	kafkaAlerter  bool
+	watchTick       int
+	defaultCheckTTL float64
+	kafkaAlerter    bool
 
 	mutex  sync.RWMutex
 	events = map[string]map[string]types.Event{}
@@ -36,7 +36,7 @@ var (
 func init() {
 	flag.IntVar(&port, "port", 4242, "Port")
 	flag.IntVar(&watchTick, "watch-tick", 30, "Tick in seconds to watch check states")
-	flag.IntVar(&healthTimeout, "health-timeout", 30, "Health timeout in seconds to consider a check in error")
+	flag.Float64Var(&defaultCheckTTL, "default-check-ttl", 30, "Check TTL in seconds to consider a check in error")
 	flag.BoolVar(&kafkaAlerter, "kafka-alerter", false, "Send alerts to Kafka (required env vars: B, U, P, T)")
 	flag.StringVar(&namespaces, "ns", "c1,c2", "Namespaces")
 	flag.Parse()

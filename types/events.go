@@ -11,10 +11,15 @@ const (
 )
 
 type Event struct {
+	TTL       float64
 	ID        string
 	Status    string
 	Timestamp time.Time
 	Value     map[string]interface{}
+}
+
+func (e Event) GetCheckTTL() float64 {
+	return e.Value["CheckTTL"].(float64)
 }
 
 func (e Event) GetHost() string {
