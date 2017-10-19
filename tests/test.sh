@@ -20,7 +20,8 @@ main() {
       "Host": "n'$n'.k.g.i.h.net",
       "Service": "badaboum.'$s'",
       "State": "OK",
-      "Message": "Latency < 100ms"
+      "Message": "Latency < 100ms",
+      "CheckTTL": 10
     }'
 
     sleep 0.$d

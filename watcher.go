@@ -7,10 +7,6 @@ import (
 	"github.com/thbkrkr/toctoc/types"
 )
 
-var (
-	healthTimeoutDuration = time.Second * time.Duration(healthTimeout)
-)
-
 func Watch() {
 	tick := time.NewTicker(time.Second * time.Duration(watchTick))
 	for range tick.C {
@@ -30,7 +26,10 @@ func isKO(event types.Event) bool {
 	if event.Status == types.StatusKO {
 		return true
 	}
-	if time.Since(event.Timestamp).Seconds() > float64(healthTimeout) {
+	if event.TTL < 0 {
+		return false
+	}
+	if time.Since(event.Timestamp).Seconds() > event.TTL {
 		return true
 	}
 	return false
@@ -40,7 +39,7 @@ func alert(ns string, event types.Event) {
 	event.Status = types.StatusKO
 	events[ns][event.ID] = event
 
-	log.WithField("ns", ns).WithField("ID", event.ID).Errorf("No event since %d seconds", healthTimeout)
+	log.WithField("ns", ns).WithField("ID", event.ID).Errorf("No event since %f seconds", event.TTL)
 
 	if kafkaAlerter {
 		go sendAlertToKafka(event)
