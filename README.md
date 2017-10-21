@@ -8,16 +8,16 @@ Who is still alive?
 
 ```bash
 Usage of ./toctoc:
-  -health-timeout int
-        Health timeout in seconds to consider a check in error (default 30)
-  -kafka-alerter
-        Send alerts to Kafka (required env vars: B, U, P, T)
-  -ns string
-        Namespaces (default "c1,c2")
   -port int
         Port (default 4242)
+  -ns string
+        Namespaces (default "c1,c2")
+  -default-check-ttl float
+        Check TTL in seconds to consider a check in error (default 30)
   -watch-tick int
         Tick in seconds to watch check states (default 30)
+  -kafka-alerter
+        Send alerts to Kafka (required env vars: B, U, P, T)
 ```
 
 ### API
@@ -41,7 +41,8 @@ ping() {
     "Host": "n1.b.i.m.io",
     "Service": "badaboum",
     "State": "OK",
-    "Message": "Latency < 1ms"
+    "Message": "Latency < 1ms",
+    "CheckTTL": 10
   }'
 }
 ```
