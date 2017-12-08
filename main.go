@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	name      = "toctoc"
-	buildDate = "dev"
-	gitCommit = "dev"
-	port      int
+	name          = "toctoc"
+	buildDate     = "dev"
+	gitCommit     = "dev"
+	port          int
+	adminPassword string
 
 	watchTick       int
 	defaultCheckTTL float64
@@ -40,6 +41,8 @@ func init() {
 	flag.BoolVar(&kafkaAlerter, "kafka-alerter", false, "Send alerts to Kafka (required env vars: B, U, P, T)")
 	flag.StringVar(&namespaces, "ns", "c1,c2", "Namespaces")
 	flag.Parse()
+
+	adminPassword = os.Getenv("ADMIN_PASSWORD")
 }
 
 func main() {
@@ -73,6 +76,11 @@ func router(e *gin.Engine) {
 	})
 
 	r := e.Group("/r", authMiddleware())
+	if adminPassword != "" {
+		r.Use(gin.BasicAuth(gin.Accounts{
+			"zuperadmin": adminPassword,
+		}))
+	}
 	r.POST("/:ns/event", HandleEvent)
 	r.GET("/:ns/health", Health)
 	r.GET("/:ns/services", Services)
