@@ -129,6 +129,10 @@ func Services(c *gin.Context) {
 	servicesMap := map[string]int{}
 	eventsMap := map[string]map[string]interface{}{}
 	for _, event := range evs {
+		if event.ID == "" {
+			logrus.WithField("event", event).Warn("event is nil")
+			continue
+		}
 		host := event.GetHost()
 		service := event.GetService()
 		if _, ok := eventsMap[host]; !ok {
