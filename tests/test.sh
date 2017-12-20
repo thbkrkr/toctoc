@@ -1,5 +1,17 @@
 #!/bin/bash -eu
 
+testpush() {
+  n=1 s=a
+  curl -is "http://toctoc.c1.banane.ovh/r/faas/event" -XPOST -d '
+    {
+      "Host": "n'$n'.k.g.i.h.net",
+      "Service": "badaboum.'$s'",
+      "State": "OK",
+      "Message": "Latency < 100ms",
+      "CheckTTL": 10
+    }'
+}
+
 push() {
   curl -is "$url/r/$ns/event" -XPOST -d "$@"
 }
@@ -41,12 +53,13 @@ draft_pipeline() {
   {
     "Timestamp": 1498859806,
     "Kind": "gitpush",
-    "Node": "io.blurb.space",
-    "Service": "badaboum.'$s'",
     "Name": "gitpush a9a32za in badaboum.'$s'",
     "Status": "OK",
     "Output": "Fix bug",
-    "Sha1": "a9a32za"
+    "Sha1": "a9a32za",
+    "Service": "badaboum.'$s'",
+    "Repo": "github.com/thbkrkr/badaboum.git",
+    "Branch": "master"
   }'
   # @kafka <- call jenkins -> start build job
 
@@ -56,13 +69,13 @@ draft_pipeline() {
   {
     "Timestamp": 1498859806,
     "Kind": "build",
-    "Node": "j.blurb.space",
-    "Service": "badaboum.'$s'",
     "Name": "build a9a32za badaboum.'$s'",
     "Status": "OK",
     "Ouput": "XX...........",
-    "Cmd": "docker build -t xxxx .",
-    "Sha1": "a9a32za"
+    "Sha1": "a9a32za",
+    "Node": "j.blurb.space",
+    "Branch": "master",
+    "Cmd": "docker build -t xxxx ."
   }'
   # @build job result -> kafka
   # @build job result OK -> start deploy job
@@ -72,12 +85,13 @@ draft_pipeline() {
   {
     "Timestamp": 1498859806,
     "Kind": "deploy",
+    "Env": "prod",
+    "Cluster": "c1",
     "Node": "n'$n'.blurb.space",
     "Service": "badaboum.'$s'",
     "Name": "deploy a9a32za badaboum.'$s'",
     "Status": "OK",
     "Ouput": "XX...........",
-    "Cmd": "docker build -t xxxx .",
     "Sha1": "a9a32za"
   }'
   # @kafka <- call jenkins -> start build job
@@ -87,11 +101,35 @@ draft_pipeline() {
   {
     "Timestamp": 1498859806,
     "Kind": "check",
+    "Env": "prod",
+    "Cluster": "c1",
     "Node": "n'$n'.blurb.space",
     "Service": "badaboum.'$s'",
     "Name": "check-http badaboum.'$s'",
     "Status": "OK",
     "Ouput": "XX...........",
+    "Sha1": "a9a32za"
   }'
 
 }
+
+kind:gitpush
+entity: repo
+
+kind:build
+entity: service
+
+kind:deploy
+entity: service
+entity: node
+
+kind:check
+entity: service
+entity: node
+
+entity:env
+  entity:cluster
+    entity:node
+    entity:service
+
+

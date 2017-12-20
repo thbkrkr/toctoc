@@ -23,6 +23,9 @@ func (e Event) GetCheckTTL() float64 {
 }
 
 func (e Event) GetHost() string {
+	if e.Value["Host"] == nil {
+		return ""
+	}
 	return e.Value["Host"].(string)
 }
 
@@ -32,6 +35,19 @@ func (e Event) GetService() string {
 
 func (e Event) GetStatus() string {
 	return e.Value["Status"].(string)
+}
+
+func (e Event) IsKO() bool {
+	if e.Status == StatusKO {
+		return true
+	}
+	if e.TTL < 0 {
+		return false
+	}
+	if time.Since(e.Timestamp).Seconds() > e.TTL {
+		return true
+	}
+	return false
 }
 
 func (e Event) ToBytes() ([]byte, error) {

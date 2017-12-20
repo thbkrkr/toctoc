@@ -21,33 +21,11 @@ func HandleEvent(c *gin.Context) {
 		return
 	}
 
-	checkTTL, err := extractCheckTTL(data)
+	event, err := parseEvent(data)
 	if err != nil {
-		logrus.WithError(err).WithField("body", data).Error("Fail to extract checkTTL while handling state event")
+		logrus.WithError(err).WithField("body", data).Error("Fail to parse event")
 		c.JSON(400, gin.H{"message": err.Error()})
 		return
-	}
-
-	ID, err := extractHostAndService(data)
-	if err != nil {
-		logrus.WithError(err).WithField("body", data).Error("Fail to extract host and service while handling state event")
-		c.JSON(400, gin.H{"message": err.Error()})
-		return
-	}
-
-	status, err := extractStatus(data)
-	if err != nil {
-		logrus.WithError(err).WithField("body", data).Error("Fail to extract status while handling state event")
-		c.JSON(400, gin.H{"message": err.Error()})
-		return
-	}
-
-	event := types.Event{
-		TTL:       checkTTL,
-		ID:        ID,
-		Status:    status,
-		Timestamp: time.Now(),
-		Value:     data,
 	}
 
 	mutex.Lock()
@@ -55,52 +33,56 @@ func HandleEvent(c *gin.Context) {
 	if _, ok := events[ns]; !ok {
 		events[ns] = map[string]types.Event{}
 	}
-	events[ns][ID] = event
+	events[ns][event.ID] = event
 }
 
-func extractCheckTTL(obj map[string]interface{}) (float64, error) {
-	checkTTLObj := obj["CheckTTL"]
-	if checkTTLObj == nil {
-		return defaultCheckTTL, nil
-	}
-
-	checkTTL, ok := checkTTLObj.(float64)
-	if !ok {
-		return 0, errors.New("Property 'checkTTL' should be a number")
-	}
-
-	return checkTTL, nil
-}
-
-func extractHostAndService(obj map[string]interface{}) (string, error) {
+// parseEvent parses a generic JSON object in a structured event
+// Host: Host || Node
+// Service: Service
+// Status: Status || State
+func parseEvent(obj map[string]interface{}) (types.Event, error) {
 	host := obj["Host"]
 	if host == nil {
 		host = obj["Node"]
 	}
 	if host == nil {
-		return "", errors.New("Property 'Host' not found")
+		return types.Event{}, errors.New("Property 'Host' not found")
 	}
 	service := obj["Service"]
 	if service == nil {
-		return "", errors.New("Property 'Service' not found")
+		return types.Event{}, errors.New("Property 'Service' not found")
 	}
 
-	return service.(string) + "/" + host.(string), nil
-}
+	ID := service.(string) + "/" + host.(string)
 
-func extractStatus(obj map[string]interface{}) (string, error) {
 	status := obj["Status"]
 	if status == nil {
 		status = obj["State"]
 	}
 	if status == nil {
-		return "", errors.New("Property 'Status' not found")
+		return types.Event{}, errors.New("Property 'Status' not found")
 	}
 
-	return status.(string), nil
+	checkTTLObj := obj["CheckTTL"]
+	if checkTTLObj == nil {
+		checkTTLObj = defaultCheckTTL
+	}
+
+	checkTTL, ok := checkTTLObj.(float64)
+	if !ok {
+		return types.Event{}, errors.New("Property 'checkTTL' should be a number")
+	}
+
+	return types.Event{
+		TTL:       checkTTL,
+		ID:        ID,
+		Status:    status.(string),
+		Timestamp: time.Now(),
+		Value:     obj,
+	}, nil
 }
 
-// Health return all events with status 500 if at least one event is in error
+// Health returns all events with status 500 if at least one event is in error
 func Health(c *gin.Context) {
 	mutex.RLock()
 	defer mutex.RUnlock()
@@ -119,7 +101,7 @@ func Health(c *gin.Context) {
 	c.JSON(status, eventsArr)
 }
 
-// Services return the list of services and a map of event states indexed by host and service
+// Services returns the list of services and a map of event states indexed by host and service
 func Services(c *gin.Context) {
 	mutex.RLock()
 	defer mutex.RUnlock()
@@ -127,7 +109,7 @@ func Services(c *gin.Context) {
 	evs := events[c.Param("ns")]
 
 	servicesMap := map[string]int{}
-	eventsMap := map[string]map[string]interface{}{}
+	eventsMap := map[string]map[string]types.Event{}
 	for _, event := range evs {
 		if event.ID == "" {
 			logrus.WithField("event", event).Warn("event is nil")
@@ -136,7 +118,7 @@ func Services(c *gin.Context) {
 		host := event.GetHost()
 		service := event.GetService()
 		if _, ok := eventsMap[host]; !ok {
-			eventsMap[host] = map[string]interface{}{}
+			eventsMap[host] = map[string]types.Event{}
 		}
 		servicesMap[service] = 1
 		eventsMap[host][service] = event
@@ -156,7 +138,7 @@ func Services(c *gin.Context) {
 	})
 }
 
-// DeleteService Delete all events related to a given service
+// DeleteService deletes all events related to a given service
 func DeleteService(c *gin.Context) {
 	ns := c.Param("ns")
 	service := c.Param("service")

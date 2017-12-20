@@ -13,26 +13,13 @@ func Watch() {
 		mutex.Lock()
 		for ns := range events {
 			for _, event := range events[ns] {
-				if isKO(event) {
+				if event.IsKO() {
 					alert(ns, event)
 				}
 			}
 		}
 		mutex.Unlock()
 	}
-}
-
-func isKO(event types.Event) bool {
-	if event.Status == types.StatusKO {
-		return true
-	}
-	if event.TTL < 0 {
-		return false
-	}
-	if time.Since(event.Timestamp).Seconds() > event.TTL {
-		return true
-	}
-	return false
 }
 
 func alert(ns string, event types.Event) {
