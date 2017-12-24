@@ -60,7 +60,7 @@ func main() {
 			log.WithError(err).Fatal("Fail to create qlient")
 		}
 		if q == nil {
-			log.WithError(err).Fatal("Fail to create qlient (*)")
+			log.WithError(err).Fatal("Fail to create qlient (nil)")
 		}
 	}
 

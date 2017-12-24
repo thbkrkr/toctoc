@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 )
 
@@ -60,4 +61,50 @@ func (e Event) ToBytes() ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+// parseEvent parses a generic JSON object in a structured event
+// Host: Host || Node
+// Service: Service
+// Status: Status || State
+func ParseEvent(defaultCheckTTL float64, obj map[string]interface{}) (Event, error) {
+	host := obj["Host"]
+	if host == nil {
+		host = obj["Node"]
+	}
+	if host == nil {
+		return Event{}, errors.New("Property 'Host' not found")
+	}
+	service := obj["Service"]
+	if service == nil {
+		return Event{}, errors.New("Property 'Service' not found")
+	}
+
+	ID := service.(string) + "/" + host.(string)
+
+	status := obj["Status"]
+	if status == nil {
+		status = obj["State"]
+	}
+	if status == nil {
+		return Event{}, errors.New("Property 'Status' not found")
+	}
+
+	checkTTLObj := obj["CheckTTL"]
+	if checkTTLObj == nil {
+		checkTTLObj = defaultCheckTTL
+	}
+
+	checkTTL, ok := checkTTLObj.(float64)
+	if !ok {
+		return Event{}, errors.New("Property 'checkTTL' should be a number")
+	}
+
+	return Event{
+		TTL:       checkTTL,
+		ID:        ID,
+		Status:    status.(string),
+		Timestamp: time.Now(),
+		Value:     obj,
+	}, nil
 }
