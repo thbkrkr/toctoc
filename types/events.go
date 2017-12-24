@@ -24,7 +24,7 @@ func (e Event) GetCheckTTL() float64 {
 
 func (e Event) GetHost() string {
 	if e.Value["Host"] == nil {
-		return ""
+		return "undefined"
 	}
 	return e.Value["Host"].(string)
 }
@@ -33,8 +33,11 @@ func (e Event) GetService() string {
 	return e.Value["Service"].(string)
 }
 
-func (e Event) GetStatus() string {
-	return e.Value["Status"].(string)
+func (e Event) GetMessage() string {
+	if e.Value["Message"] == nil {
+		return "undefined"
+	}
+	return e.Value["Message"].(string)
 }
 
 func (e Event) IsKO() bool {

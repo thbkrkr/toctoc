@@ -16,10 +16,11 @@ push() {
   curl -is "$url/r/$ns/event" -XPOST -d "$@"
 }
 
+ns=krkr
+url=${TOCTOC_ADDR:-"localhost:4242"}
+
 main() {
   while true; do
-    url=${TOCTOC_ADDR:-"localhost:4242"}
-    ns=krkr
 
     n=$(shuf -i 1-5 -n 1)
     s=$(shuf -i 1-5 -n 1)
@@ -33,14 +34,23 @@ main() {
       "Service": "badaboum.'$s'",
       "State": "OK",
       "Message": "Latency < 100ms",
-      "CheckTTL": 10
+      "CheckTTL": 3
     }'
 
     sleep 0.$d
   done
 }
 
-main
+#main
+
+push '
+    {
+      "Host": "n1.k.g.i.h.net",
+      "Service": "badaboum.2",
+      "State": "OK",
+      "Message": "Latency < 100ms",
+      "CheckTTL": 6
+    }'
 
 ######
 
@@ -113,23 +123,23 @@ draft_pipeline() {
 
 }
 
-kind:gitpush
-entity: repo
+# kind:gitpush
+# entity: repo
 
-kind:build
-entity: service
+# kind:build
+# entity: service
 
-kind:deploy
-entity: service
-entity: node
+# kind:deploy
+# entity: service
+# entity: node
 
-kind:check
-entity: service
-entity: node
+# kind:check
+# entity: service
+# entity: node
 
-entity:env
-  entity:cluster
-    entity:node
-    entity:service
+# entity:env
+#   entity:cluster
+#     entity:node
+#     entity:service
 
 
