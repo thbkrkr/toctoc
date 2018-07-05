@@ -1,4 +1,4 @@
-FROM golang:1.9.2-alpine
+FROM golang:1.10-alpine3.7
 ENV GOBIN=/go/bin/ GOPATH=/go
 WORKDIR /go/src/github.com/thbkrkr/toctoc
 COPY . /go/src/github.com/thbkrkr/toctoc
