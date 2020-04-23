@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 )
 
@@ -24,7 +25,7 @@ func (e Event) GetCheckTTL() float64 {
 
 func (e Event) GetHost() string {
 	if e.Value["Host"] == nil {
-		return ""
+		return "undefined"
 	}
 	return e.Value["Host"].(string)
 }
@@ -33,8 +34,11 @@ func (e Event) GetService() string {
 	return e.Value["Service"].(string)
 }
 
-func (e Event) GetStatus() string {
-	return e.Value["Status"].(string)
+func (e Event) GetMessage() string {
+	if e.Value["Message"] == nil {
+		return "undefined"
+	}
+	return e.Value["Message"].(string)
 }
 
 func (e Event) IsKO() bool {
@@ -57,4 +61,50 @@ func (e Event) ToBytes() ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+// parseEvent parses a generic JSON object in a structured event
+// Host: Host || Node
+// Service: Service
+// Status: Status || State
+func ParseEvent(defaultCheckTTL float64, obj map[string]interface{}) (Event, error) {
+	host := obj["Host"]
+	if host == nil {
+		host = obj["Node"]
+	}
+	if host == nil {
+		return Event{}, errors.New("Property 'Host' not found")
+	}
+	service := obj["Service"]
+	if service == nil {
+		return Event{}, errors.New("Property 'Service' not found")
+	}
+
+	ID := service.(string) + "/" + host.(string)
+
+	status := obj["Status"]
+	if status == nil {
+		status = obj["State"]
+	}
+	if status == nil {
+		return Event{}, errors.New("Property 'Status' not found")
+	}
+
+	checkTTLObj := obj["CheckTTL"]
+	if checkTTLObj == nil {
+		checkTTLObj = defaultCheckTTL
+	}
+
+	checkTTL, ok := checkTTLObj.(float64)
+	if !ok {
+		return Event{}, errors.New("Property 'checkTTL' should be a number")
+	}
+
+	return Event{
+		TTL:       checkTTL,
+		ID:        ID,
+		Status:    status.(string),
+		Timestamp: time.Now(),
+		Value:     obj,
+	}, nil
 }

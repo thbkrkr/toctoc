@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"sort"
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
@@ -21,7 +19,7 @@ func HandleEvent(c *gin.Context) {
 		return
 	}
 
-	event, err := parseEvent(data)
+	event, err := types.ParseEvent(defaultCheckTTL, data)
 	if err != nil {
 		logrus.WithError(err).WithField("body", data).Error("Fail to parse event")
 		c.JSON(400, gin.H{"message": err.Error()})
@@ -34,52 +32,6 @@ func HandleEvent(c *gin.Context) {
 		events[ns] = map[string]types.Event{}
 	}
 	events[ns][event.ID] = event
-}
-
-// parseEvent parses a generic JSON object in a structured event
-// Host: Host || Node
-// Service: Service
-// Status: Status || State
-func parseEvent(obj map[string]interface{}) (types.Event, error) {
-	host := obj["Host"]
-	if host == nil {
-		host = obj["Node"]
-	}
-	if host == nil {
-		return types.Event{}, errors.New("Property 'Host' not found")
-	}
-	service := obj["Service"]
-	if service == nil {
-		return types.Event{}, errors.New("Property 'Service' not found")
-	}
-
-	ID := service.(string) + "/" + host.(string)
-
-	status := obj["Status"]
-	if status == nil {
-		status = obj["State"]
-	}
-	if status == nil {
-		return types.Event{}, errors.New("Property 'Status' not found")
-	}
-
-	checkTTLObj := obj["CheckTTL"]
-	if checkTTLObj == nil {
-		checkTTLObj = defaultCheckTTL
-	}
-
-	checkTTL, ok := checkTTLObj.(float64)
-	if !ok {
-		return types.Event{}, errors.New("Property 'checkTTL' should be a number")
-	}
-
-	return types.Event{
-		TTL:       checkTTL,
-		ID:        ID,
-		Status:    status.(string),
-		Timestamp: time.Now(),
-		Value:     obj,
-	}, nil
 }
 
 // Health returns all events with status 500 if at least one event is in error

@@ -25,9 +25,11 @@ var (
 	watchTick       int
 	defaultCheckTTL float64
 	kafkaAlerter    bool
+	mailAlerter     bool
 
 	mutex  sync.RWMutex
 	events = map[string]map[string]types.Event{}
+	alerts = map[string]*Alert{}
 
 	q *client.Qlient
 
@@ -36,10 +38,11 @@ var (
 
 func init() {
 	flag.IntVar(&port, "port", 4242, "Port")
+	flag.StringVar(&namespaces, "ns", "c1,c2", "Namespaces")
 	flag.IntVar(&watchTick, "watch-tick", 30, "Tick in seconds to watch check states")
 	flag.Float64Var(&defaultCheckTTL, "default-check-ttl", 30, "Check TTL in seconds to consider a check in error")
 	flag.BoolVar(&kafkaAlerter, "kafka-alerter", false, "Send alerts to Kafka (required env vars: B, U, P, T)")
-	flag.StringVar(&namespaces, "ns", "c1,c2", "Namespaces")
+	flag.BoolVar(&mailAlerter, "mail-alerter", false, "Send alerts by Mail (required env vars: SMTP_HOST, ALERT_EMAIL)")
 	flag.Parse()
 
 	adminPassword = os.Getenv("ADMIN_PASSWORD")
@@ -57,7 +60,7 @@ func main() {
 			log.WithError(err).Fatal("Fail to create qlient")
 		}
 		if q == nil {
-			log.WithError(err).Fatal("Fail to create qlient (*)")
+			log.WithError(err).Fatal("Fail to create qlient (nil)")
 		}
 	}
 
